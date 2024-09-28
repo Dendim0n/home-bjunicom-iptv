@@ -13,6 +13,11 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: doit
         uses: actions/checkout@v2
+      - name: Clear existing file
+        run: >
+          if [ -f bj-unicom-iptv.m3u ]; then
+            > bj-unicom-iptv.m3u
+          fi
       - name: Get Gist
         run: |
           # 假设你已经安装了 curl 和 jq
