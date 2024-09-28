@@ -36,7 +36,4 @@ jobs:
           git add bj-unicom-iptv.m3u
           git commit -m "Updated m3u with replaced strings"
           echo "Committed changes."
-      - name: Push changes
-        run: |
           git push git@github.com:Dendim0n/home-bjunicom-iptv.git main
-          echo "Pushed changes to repository."
