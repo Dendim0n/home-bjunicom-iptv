@@ -1,0 +1,49 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Get Gist
+        run:
+          # 假设你已经安装了 curl 和 jq
+          GIST_CONTENT=$(curl -s -u https://api.github.com/gists/93cf74947770066743fff7c7f4fc5820 | jq -r '.files."bj-unicom-iptv.m3u".content')
+          echo "Retrieved Gist content."
+      - name: Replace strings
+        run:
+          # 假设要将 "old_string" 替换为 "new_string"
+          OLD_STRING='rtp://'
+          NEW_STRING='http://192.168.1.4:8012/rtp/'
+          REPLACED_CONTENT="${GIST_CONTENT//$OLD_STRING/$NEW_STRING}"
+          echo "Replaced strings in content."
+      - name: Save to file
+        run:
+          echo "${REPLACED_CONTENT}" > bj-unicom-iptv.m3u
+          echo "Saved modified content to file."
+      - name: Commit changes
+        run:
+          git add bj-unicom-iptv.m3u
+          git commit -m "Updated m3u with replaced strings"
+          echo "Committed changes."
+      - name: Push changes
+        run:
+          git push origin master
+          echo "Pushed changes to repository."
