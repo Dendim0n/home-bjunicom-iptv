@@ -33,6 +33,6 @@ jobs:
           git commit -m "Updated m3u with replaced strings"
           echo "Committed changes."
       - name: Push changes
-        run:
+        run: |
           git push origin master
           echo "Pushed changes to repository."
