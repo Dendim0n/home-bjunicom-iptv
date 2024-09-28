@@ -26,7 +26,7 @@ jobs:
           echo "${REPLACED_CONTENT}" > bj-unicom-iptv.m3u
           echo "Saved modified content to file."
       - name: Commit changes
-        run:
+        run: |
           git add bj-unicom-iptv.m3u
           git commit -m "Updated m3u with replaced strings"
           echo "Committed changes."
