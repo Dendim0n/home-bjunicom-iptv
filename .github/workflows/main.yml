@@ -7,33 +7,23 @@ jobs:
   update-m3u:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-      - name: Get Gist
-        run:
-          # 假设你已经安装了 curl 和 jq
-          GIST_CONTENT=$(curl -s -u https://api.github.com/gists/93cf74947770066743fff7c7f4fc5820 | jq -r '.files."bj-unicom-iptv.m3u".content')
-          echo "Retrieved Gist content."
-      - name: Replace strings
-        run:
-          # 假设要将 "old_string" 替换为 "new_string"
-          OLD_STRING='rtp://'
-          NEW_STRING='http://192.168.1.4:8012/rtp/'
-          REPLACED_CONTENT="${GIST_CONTENT//$OLD_STRING/$NEW_STRING}"
-          echo "Replaced strings in content."
-      - name: Save to file
-        run:
-          echo "${REPLACED_CONTENT}" > bj-unicom-iptv.m3u
-          echo "Saved modified content to file."
       - name: Set up SSH key
         uses: webfactory/ssh-agent@v0.5.4
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: Commit changes
+      - name: doit
+        uses: actions/checkout@v2
+      - name: Get Gist
         run: |
+          # 假设你已经安装了 curl 和 jq
+          GIST_CONTENT=$(curl -s -u https://api.github.com/gists/93cf74947770066743fff7c7f4fc5820 | jq -r '.files."bj-unicom-iptv.m3u".content')
+          # 假设要将 "old_string" 替换为 "new_string"
+          OLD_STRING='rtp://'
+          NEW_STRING='http://192.168.1.4:8012/rtp/'
+          REPLACED_CONTENT="${GIST_CONTENT//$OLD_STRING/$NEW_STRING}"
+          echo "${REPLACED_CONTENT}" > bj-unicom-iptv.m3u
           git config --global user.email "kimi@kimi.com"
           git config --global user.name "kimi"
           git add bj-unicom-iptv.m3u
           git commit -m "Updated m3u with replaced strings"
-          echo "Committed changes."
           git push git@github.com:Dendim0n/home-bjunicom-iptv.git main
