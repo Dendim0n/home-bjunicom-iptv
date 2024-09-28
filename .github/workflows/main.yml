@@ -2,6 +2,7 @@ name: Auto Update M3U
 on:
   schedule:
     - cron: '0 */6 * * *' # 每 12 小时触发一次
+  workflow_dispatch:
 jobs:
   update-m3u:
     runs-on: ubuntu-latest
