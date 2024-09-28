@@ -27,6 +27,8 @@ jobs:
           echo "Saved modified content to file."
       - name: Commit changes
         run: |
+          git config --global user.email "kimi@kimi.com"
+          git config --global user.name "kimi"
           git add bj-unicom-iptv.m3u
           git commit -m "Updated m3u with replaced strings"
           echo "Committed changes."
