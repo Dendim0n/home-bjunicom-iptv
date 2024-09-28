@@ -17,7 +17,7 @@ jobs:
         run:
           # 假设要将 "old_string" 替换为 "new_string"
           OLD_STRING='rtp://'
-          NEW_STRING='http://192.168.1.4:8012/rtp/239.3.1.4:8216'
+          NEW_STRING='http://192.168.1.4:8012/rtp/'
           REPLACED_CONTENT="${GIST_CONTENT//$OLD_STRING/$NEW_STRING}"
           echo "Replaced strings in content."
       - name: Save to file
