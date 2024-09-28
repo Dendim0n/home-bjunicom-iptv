@@ -21,7 +21,7 @@ jobs:
       - name: Get Gist
         run: |
           # 假设你已经安装了 curl 和 jq
-          GIST_CONTENT=$(curl -s -u https://api.github.com/gists/93cf74947770066743fff7c7f4fc5820 | jq -r '.files."bj-unicom-iptv.m3u".content')
+          GIST_CONTENT=$(curl -s https://api.github.com/gists/93cf74947770066743fff7c7f4fc5820 | jq -r '.files."bj-unicom-iptv.m3u".content')
           echo "${GIST_CONTENT}"
           # 假设要将 "old_string" 替换为 "new_string"
           OLD_STRING='rtp://'
