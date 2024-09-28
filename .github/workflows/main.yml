@@ -25,6 +25,10 @@ jobs:
         run:
           echo "${REPLACED_CONTENT}" > bj-unicom-iptv.m3u
           echo "Saved modified content to file."
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Commit changes
         run: |
           git config --global user.email "kimi@kimi.com"
@@ -34,5 +38,5 @@ jobs:
           echo "Committed changes."
       - name: Push changes
         run: |
-          git push origin main
+          git push git@github.com:Dendim0n/home-bjunicom-iptv.git main
           echo "Pushed changes to repository."
