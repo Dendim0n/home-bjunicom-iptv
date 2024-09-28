@@ -34,5 +34,5 @@ jobs:
           echo "Committed changes."
       - name: Push changes
         run: |
-          git push origin master
+          git push origin main
           echo "Pushed changes to repository."
