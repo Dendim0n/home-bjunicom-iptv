@@ -28,14 +28,13 @@ jobs:
           NEW_STRING='http://192.168.1.4:8012/rtp/'
           REPLACED_CONTENT="${GIST_CONTENT//$OLD_STRING/$NEW_STRING}"
           echo "${REPLACED_CONTENT}" > bj-unicom-iptv.m3u
-      - name: Detect changes
-        run: |
-          git diff-index --quiet HEAD -- || echo "CHANGES_FOUND=true" >> $GITHUB_ENV
-      - name: Commit and push changes
-        if: env.CHANGES_FOUND == 'true'
-        run: |
-          git config --global user.email "kimi@kimi.com"
-          git config --global user.name "kimi"
-          git add bj-unicom-iptv.m3u
-          git commit -m "Updated m3u with replaced strings"
-          git push git@github.com:Dendim0n/home-bjunicom-iptv.git main
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git config --global user.email "kimi@kimi.com"
+            git config --global user.name "kimi"
+            git add bj-unicom-iptv.m3u
+            git commit -m "Updated m3u with replaced strings"
+            git push git@github.com:Dendim0n/home-bjunicom-iptv.git main
+          else
+            echo "No changes detected"
+          fi
