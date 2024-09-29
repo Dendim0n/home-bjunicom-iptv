@@ -28,12 +28,11 @@ jobs:
           NEW_STRING='http://192.168.1.4:8012/rtp/'
           REPLACED_CONTENT="${GIST_CONTENT//$OLD_STRING/$NEW_STRING}"
           echo "${REPLACED_CONTENT}" > bj-unicom-iptv.m3u
-      - name: Check for changes
-        id: check_changes
+      - name: Detect changes
         run: |
-          if git diff-index --quiet HEAD --; then echo "no_changes"; fi
-      - name: Commit changes
-        if: steps.check_changes.outputs.result != 'no_changes'
+          git diff-index --quiet HEAD -- || echo "CHANGES_FOUND=true" >> $GITHUB_ENV
+      - name: Commit and push changes
+        if: env.CHANGES_FOUND == 'true'
         run: |
           git config --global user.email "kimi@kimi.com"
           git config --global user.name "kimi"
