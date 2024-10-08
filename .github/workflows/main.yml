@@ -35,6 +35,27 @@ jobs:
             git add bj-unicom-iptv.m3u
             git commit -m "Updated m3u with replaced strings"
             git push git@github.com:Dendim0n/home-bjunicom-iptv.git main
+
+            git fetch --tags
+            VERSION=$(git tag | sort -V | tail -n 1)
+            echo "Current version is: $VERSION"
+            if [ -z "$VERSION" ]; then
+              VERSION="v0.0.0"
+            fi
+            NEW_VERSION=$(echo $VERSION | awk -F. -v OFS=. '{$NF++; print}')
+            echo "New version is: $NEW_VERSION"
+            echo ::set-output name=version::$NEW_VERSION
           else
             echo "No changes detected"
           fi
+
+      - name: Create release
+        if: steps.get_version.outputs.version != ''
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          release_name: Release ${{ steps.get_version.outputs.version }}
+          draft: false
+          prerelease: false
