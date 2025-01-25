@@ -1,0 +1,75 @@
+name: Auto Update M3U qwerttvv
+on:
+  schedule:
+    - cron: '0 */6 * * *' # 每 6 小时触发一次
+  workflow_dispatch:
+jobs:
+  update-m3u:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Clear existing file
+        run: >
+          if [ -f bj-unicom-iptv-1.m3u ]; then # 文件名更改
+            > bj-unicom-iptv-1.m3u # 文件名更改
+          fi
+      - name: Get M3U from GitHub and replace strings
+        run: |
+          # 使用 curl 下载 M3U 文件，并添加错误处理
+          curl -sSf https://raw.githubusercontent.com/qwerttvv/Beijing-IPTV/master/IPTV-Unicom.m3u > source.m3u || exit 1
+
+          # 读取文件内容
+          GIST_CONTENT=$(cat source.m3u)
+
+          # 替换字符串 (只替换 IP 地址和端口)
+          OLD_STRING='192.168.123.1:23234'
+          NEW_STRING='192.168.1.4:8012'
+
+          REPLACED_CONTENT="${GIST_CONTENT//$OLD_STRING/$NEW_STRING}"
+
+          echo "${REPLACED_CONTENT}" > bj-unicom-iptv-1.m3u # 文件名更改
+      - name: Commit and push changes
+        id: get_version
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config --global user.email "kimi@kimi.com"
+            git config --global user.name "kimi"
+            git add bj-unicom-iptv-1.m3u # 文件名更改
+            git commit -m "Updated m3u with replaced IP and port"
+            git push origin main
+
+            git fetch --tags
+            VERSION=$(git tag | sort -V | tail -n 1)
+            if [ -z "$VERSION" ]; then
+              VERSION="v0.0.0"
+            fi
+            NEW_VERSION=$(echo $VERSION | awk -F. -v OFS=. '{$NF++; print}')
+            echo ::set-output name=version::$NEW_VERSION
+          else
+            echo "No changes detected"
+          fi
+      - name: Create release
+        if: steps.get_version.outputs.version != ''
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          release_name: Release ${{ steps.get_version.outputs.version }}
+          draft: false
+          prerelease: false
+      - name: Upload release asset
+        if: steps.get_version.outputs.version != ''
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./bj-unicom-iptv-1.m3u # 文件名更改
+          asset_name: bj-unicom-iptv-1.m3u # 文件名更改
+          asset_content_type: application/x-mpegURL
