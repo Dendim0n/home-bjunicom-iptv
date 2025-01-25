@@ -18,32 +18,61 @@ jobs:
           if [ -f bj-unicom-iptv.m3u ]; then
             > bj-unicom-iptv.m3u
           fi
-      - name: Get Gist
+      - name: Get Gist and Group Channels
         run: |
-          # 假设你已经安装了 curl 和 jq
+          # 获取 Gist 内容
           GIST_CONTENT=$(curl -s https://api.github.com/gists/93cf74947770066743fff7c7f4fc5820 | jq -r '.files."bj-unicom-iptv.m3u".content')
           echo "${GIST_CONTENT}"
-          # 假设要将 "old_string" 替换为 "new_string"
+
+          # 替换字符串
           OLD_STRING='rtp://'
           NEW_STRING='http://192.168.1.4:8012/rtp/'
           REPLACED_CONTENT="${GIST_CONTENT//$OLD_STRING/$NEW_STRING}"
-          echo "${REPLACED_CONTENT}" > bj-unicom-iptv.m3u
 
+          # 初始化分组
+          HIGH_DEFINITION_GROUP="#EXTM3U\n#EXTINF:-1 group-title=\"高清\",\n"
+          OTHER_GROUP="#EXTM3U\n#EXTINF:-1 group-title=\"其他\",\n"
+
+          # 按行处理内容
+          while IFS= read -r line; do
+            if [[ "$line" == "#EXTINF:-1"* ]]; then
+              # 判断是否包含“高清”
+              if [[ "$line" == *"高清"* ]]; then
+                HIGH_DEFINITION_GROUP+="$line\n"
+              else
+                OTHER_GROUP+="$line\n"
+              fi
+            else
+              # 非标题行（如 URL）直接追加到当前分组
+              if [[ "$line" == "http"* ]]; then
+                if [[ "$HIGH_DEFINITION_GROUP" == *"#EXTINF"* ]]; then
+                  HIGH_DEFINITION_GROUP+="$line\n"
+                else
+                  OTHER_GROUP+="$line\n"
+                fi
+              fi
+            fi
+          done <<< "$REPLACED_CONTENT"
+
+          # 合并分组内容
+          FINAL_CONTENT="$HIGH_DEFINITION_GROUP\n$OTHER_GROUP"
+          echo -e "$FINAL_CONTENT" > bj-unicom-iptv.m3u
+
+          # 如果有更改，提交并推送
           if [ -n "$(git status --porcelain)" ]; then
             git config --global user.email "kimi@kimi.com"
             git config --global user.name "kimi"
             git add bj-unicom-iptv.m3u
-            git commit -m "Updated m3u with replaced strings"
+            git commit -m "Updated m3u with grouped channels"
             git push git@github.com:Dendim0n/home-bjunicom-iptv.git main
 
+            # 版本管理
             git fetch --tags
             VERSION=$(git tag | sort -V | tail -n 1)
-            echo "Current version is: $VERSION"
             if [ -z "$VERSION" ]; then
               VERSION="v0.0.0"
             fi
             NEW_VERSION=$(echo $VERSION | awk -F. -v OFS=. '{$NF++; print}')
-            echo "New version is: $NEW_VERSION"
             echo ::set-output name=version::$NEW_VERSION
           else
             echo "No changes detected"
