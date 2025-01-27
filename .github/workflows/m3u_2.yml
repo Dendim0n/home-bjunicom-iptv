@@ -20,18 +20,12 @@ jobs:
           fi
       - name: Get M3U from GitHub and replace strings
         run: |
-          # 使用 curl 下载 M3U 文件，并添加错误处理
-          curl -sSf https://raw.githubusercontent.com/qwerttvv/Beijing-IPTV/master/IPTV-Unicom.m3u > source.m3u || exit 1
-
-          # 读取文件内容
+          curl -sSf https://raw.githubusercontent.com/qwerttvv/Beijing-IPTV/master/IPTV-Unicom.m3u > source.m3u
           GIST_CONTENT=$(cat source.m3u)
-
-          # 替换字符串 (只替换 IP 地址和端口)
           OLD_STRING='192.168.123.1:23234'
           NEW_STRING='192.168.1.4:8012'
 
           REPLACED_CONTENT="${GIST_CONTENT//$OLD_STRING/$NEW_STRING}"
-
           echo "${REPLACED_CONTENT}" > bj-unicom-iptv-1.m3u # 文件名更改
       - name: Commit and push changes
         id: get_version
