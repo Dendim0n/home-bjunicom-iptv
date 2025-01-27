@@ -1,4 +1,4 @@
-name: Auto Update M3U qwerttvv
+name: Auto Update M3U from qwerttvv repo
 on:
   schedule:
     - cron: '0 */6 * * *' # 每 6 小时触发一次
@@ -20,27 +20,28 @@ jobs:
           fi
       - name: Get M3U from GitHub and replace strings
         run: |
-          curl -sSf https://raw.githubusercontent.com/qwerttvv/Beijing-IPTV/master/IPTV-Unicom.m3u > source.m3u
-          GIST_CONTENT=$(cat source.m3u)
+          GIST_CONTENT=$(curl -s https://raw.githubusercontent.com/qwerttvv/Beijing-IPTV/master/IPTV-Unicom.m3u)
+          # 假设要将 "old_string" 替换为 "new_string"
           OLD_STRING='192.168.123.1:23234'
           NEW_STRING='192.168.1.4:8012'
-
           REPLACED_CONTENT="${GIST_CONTENT//$OLD_STRING/$NEW_STRING}"
-          echo "${REPLACED_CONTENT}" > bj-unicom-iptv-1.m3u # 文件名更改
+          echo "${REPLACED_CONTENT}" > bj-unicom-iptv-1.m3u
 
           if [ -n "$(git status --porcelain)" ]; then
             git config --global user.email "kimi@kimi.com"
             git config --global user.name "kimi"
-            git add bj-unicom-iptv-1.m3u # 文件名更改
-            git commit -m "Updated m3u with replaced IP and port"
-            git push origin main
+            git add bj-unicom-iptv.m3u
+            git commit -m "Updated m3u with replaced strings"
+            git push git@github.com:Dendim0n/home-bjunicom-iptv.git main
 
             git fetch --tags
             VERSION=$(git tag | sort -V | tail -n 1)
+            echo "Current version is: $VERSION"
             if [ -z "$VERSION" ]; then
               VERSION="v0.0.0"
             fi
             NEW_VERSION=$(echo $VERSION | awk -F. -v OFS=. '{$NF++; print}')
+            echo "New version is: $NEW_VERSION"
             echo ::set-output name=version::$NEW_VERSION
           else
             echo "No changes detected"
