@@ -27,9 +27,7 @@ jobs:
 
           REPLACED_CONTENT="${GIST_CONTENT//$OLD_STRING/$NEW_STRING}"
           echo "${REPLACED_CONTENT}" > bj-unicom-iptv-1.m3u # 文件名更改
-      - name: Commit and push changes
-        id: get_version
-        run: |
+
           if [ -n "$(git status --porcelain)" ]; then
             git config --global user.email "kimi@kimi.com"
             git config --global user.name "kimi"
