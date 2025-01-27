@@ -30,7 +30,7 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then
             git config --global user.email "kimi@kimi.com"
             git config --global user.name "kimi"
-            git add bj-unicom-iptv.m3u
+            git add bj-unicom-iptv-1.m3u
             git commit -m "Updated m3u with replaced strings"
             git push git@github.com:Dendim0n/home-bjunicom-iptv.git main
 
