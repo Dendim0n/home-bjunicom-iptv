@@ -22,7 +22,7 @@ try:
         for m in m3u_list:
             if m[0] not in needs_removed:
                 result.append(m)
-        
+        result = sorted(result, key=lambda x: x[0])
         for m in result:
             item = "#EXTINF:-1," + "\n".join(m) + '\n'
             result_str += item
