@@ -11,7 +11,7 @@ try:
             if 'EXTM3U' in line:
                 continue
             if '#EXTINF' in line:
-                name = line.replace('#EXTINF:-1','')
+                name = line.replace('#EXTINF:-1,','')
                 name = name.replace('#EXTINF:','')
                 if '高清' in name:
                     needs_removed.append(name.replace('高清',''))
