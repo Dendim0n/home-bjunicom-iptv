@@ -1,70 +1,40 @@
 name: Auto Update M3U
-
 on:
   schedule:
-    - cron: '0 */12 * * *' # 每 12 小时触发一次
+    - cron: '0 */6 * * *' # 每 12 小时触发一次
   workflow_dispatch:
-
 jobs:
   update-m3u:
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.get_gist.outputs.version }}
     steps:
       - name: Set up SSH key
         uses: webfactory/ssh-agent@v0.5.4
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Checkout repository
+      - name: doit
         uses: actions/checkout@v2
-
       - name: Clear existing file
-        run: |
+        run: >
           if [ -f bj-unicom-iptv.m3u ]; then
             > bj-unicom-iptv.m3u
           fi
-
       - name: Get Gist
-        id: get_gist
         run: |
-          # 安装必要的工具
-          sudo apt-get update && sudo apt-get install -y curl jq
-
-          # 获取 Gist 内容
+          # 假设你已经安装了 curl 和 jq
           GIST_CONTENT=$(curl -s https://api.github.com/gists/93cf74947770066743fff7c7f4fc5820 | jq -r '.files."bj-unicom-iptv.m3u".content')
-          if [ -z "$GIST_CONTENT" ]; then
-            echo "Failed to get Gist content."
-            exit 1
-          fi
-
-          # 替换字符串
+          echo "${GIST_CONTENT}"
+          # 假设要将 "old_string" 替换为 "new_string"
           OLD_STRING='rtp://'
           NEW_STRING='http://192.168.1.4:8012/rtp/'
           REPLACED_CONTENT="${GIST_CONTENT//$OLD_STRING/$NEW_STRING}"
+          echo "${REPLACED_CONTENT}" > bj-unicom-iptv.m3u
 
-          # 将替换后的内容写入临时文件
-          echo "${REPLACED_CONTENT}" > input.m3u
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10' # 可以根据需要选择 Python 版本
-
-      - name: Run Python script
-        run: python filter_m3u.py
-
-      - name: Move output file
-        run: mv output.m3u bj-unicom-iptv.m3u
-
-      - name: Check for changes and commit
-        run: |
           if [ -n "$(git status --porcelain)" ]; then
             git config --global user.email "kimi@kimi.com"
             git config --global user.name "kimi"
             git add bj-unicom-iptv.m3u
-            git commit -m "Updated m3u with replaced strings and filtered content"
-            git push git@github.com:Dendim0n/home-bjunicom-iptv.git main || { echo "Failed to push changes."; exit 1; }
+            git commit -m "Updated m3u with replaced strings"
+            git push git@github.com:Dendim0n/home-bjunicom-iptv.git main
 
             git fetch --tags
             VERSION=$(git tag | sort -V | tail -n 1)
@@ -74,27 +44,24 @@ jobs:
             fi
             NEW_VERSION=$(echo $VERSION | awk -F. -v OFS=. '{$NF++; print}')
             echo "New version is: $NEW_VERSION"
-            echo "::set-output name=version::$NEW_VERSION"
-            git tag $NEW_VERSION
-            git push origin $NEW_VERSION || { echo "Failed to push tag."; exit 1; }
+            echo ::set-output name=version::$NEW_VERSION
           else
             echo "No changes detected"
           fi
 
       - name: Create release
-        if: steps.get_gist.outputs.version != ''
-        id: create_release
+        if: steps.get_version.outputs.version != ''
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.get_gist.outputs.version }}
-          release_name: Release ${{ steps.get_gist.outputs.version }}
+          tag_name: ${{ steps.get_version.outputs.version }}
+          release_name: Release ${{ steps.get_version.outputs.version }}
           draft: false
           prerelease: false
-
+          
       - name: Upload release asset
-        if: steps.get_gist.outputs.version != ''
+        if: steps.get_version.outputs.version != ''
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
