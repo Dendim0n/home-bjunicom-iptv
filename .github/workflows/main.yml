@@ -104,13 +104,13 @@ jobs:
 
           # 对中间文件进行排序
           # - `export LC_COLLATE=C`: 确保字母排在汉字前
-          # - `sort -t'|' -k1,1 -k2,2`: 首先按第1个字段（分组）排序，然后按第2个字段（频道名）排序
-          (export LC_COLLATE=C; sort -t'|' -k1,1 -k2,2 sortable.tmp) > sorted.tmp
+          # - `sort -t'|' -k1,1 -k2,2V`: 首先按分组排序，然后按频道名进行“版本排序”
+          (export LC_COLLATE=C; sort -t'|' -k1,1 -k2,2V sortable.tmp) > sorted.tmp
 
           # 最后，从排好序的文件中提取所需内容，添加 M3U 标头，并替换协议
           (
             echo "#EXTM3U";
-            awk -F'|' '{print $3; print $4}' sorted.tmp | sed 's|rtp://|http://192.168.1.4:8012/rtp/|g';
+            awk -F'|' '{print $3; print $4}' sorted.tmp | sed 's|rtp://|http://1.1.1.1:8012/rtp/|g';
           ) > bj-unicom-iptv.m3u
 
           # 删除临时文件
