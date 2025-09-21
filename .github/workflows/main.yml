@@ -30,12 +30,7 @@ jobs:
           
           echo "Original M3U file downloaded. Filtering for HD channels..."
 
-          # 使用 awk 过滤，只保留高清/4K频道（如果存在），或者标清频道（如果没有更高版本）
-          # 第一次读取 (NR==FNR): 记录所有存在高清/4K版本的频道基础名称
-          # 第二次读取: 
-          #   - 如果一个频道是高清/4K，则保留
-          #   - 如果一个频道是标清，检查是否存在对应的高清版本。如果不存在，则保留该标清频道
-          # 最后使用 sed 替换 rtp:// 协议
+          # 步骤 1: 使用 awk 过滤，只保留高清/4K频道（如果存在），或者标清频道（如果没有更高版本）
           awk '
           NR==FNR {
               if ($0 ~ /高清|4K/ && $0 ~ /#EXTINF/) {
@@ -67,9 +62,29 @@ jobs:
                   keep = 0;
               }
           }
-          ' original.m3u original.m3u | sed 's|rtp://|http://192.168.1.4:8012/rtp/|g' > bj-unicom-iptv.m3u
+          ' original.m3u original.m3u > filtered.m3u
 
-          echo "M3U file has been filtered for HD and processed."
+          echo "M3U file has been filtered for HD."
+          echo "Now standardizing names, sorting, and processing protocols..."
+
+          # 步骤 2: 添加 M3U 标头, 替换 "CCTV-", 排序, 并替换协议
+          # - `echo "#EXTM3U"`: 写入标准的 M3U 文件头
+          # - `sed 's/CCTV-/CCTV/g'`: 将 "CCTV-" 统一为 "CCTV"
+          # - `paste - -`: 将 "#EXTINF" 行和其后的 rtp 地址行合并为一行，用制表符分隔，方便排序
+          # - `(export LC_COLLATE=C; sort ...)`: 核心排序逻辑。LC_COLLATE=C 确保字母排在汉字前
+          # - `awk ...`: 将排好序的行再拆分为两行
+          # - `sed 's|rtp://...|g'`: 替换 rtp 协议为 http
+          (
+            echo "#EXTM3U";
+            cat filtered.m3u \
+              | sed 's/CCTV-/CCTV/g' \
+              | paste - - \
+              | (export LC_COLLATE=C; sort -t ',' -k 2) \
+              | awk -F'\t' '{print $1; print $2}' \
+              | sed 's|rtp://|http://192.168.1.4:8012/rtp/|g';
+          ) > bj-unicom-iptv.m3u
+
+          echo "M3U file has been fully processed and sorted."
 
       - name: Commit and Push Changes
         id: commit_push
@@ -112,7 +127,7 @@ jobs:
         with:
           tag_name: ${{ steps.versioning.outputs.new_version }}
           release_name: Release ${{ steps.versioning.outputs.new_version }}
-          body: "Automated update of m3u file. Filtered for HD channels."
+          body: "Automated update of m3u file. Filtered for HD channels and sorted."
           draft: false
           prerelease: false
 
