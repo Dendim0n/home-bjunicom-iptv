@@ -110,7 +110,7 @@ jobs:
           # 最后，从排好序的文件中提取所需内容，添加 M3U 标头，并替换协议
           (
             echo "#EXTM3U";
-            awk -F'|' '{print $3; print $4}' sorted.tmp | sed 's|rtp://|http://192.168.1.4:8012/rtp/|g';
+            awk -F'|' '{print $3; print $4}' sorted.tmp | sed 's|rtp://|http://10.0.0.1:8012/rtp/|g';
           ) > bj-unicom-iptv.m3u
 
           # 删除临时文件
