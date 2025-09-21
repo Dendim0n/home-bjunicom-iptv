@@ -1,67 +1,123 @@
 name: Auto Update M3U
+
 on:
   schedule:
-    - cron: '0 */6 * * *' # 每 12 小时触发一次
-  workflow_dispatch:
+    - cron: '0 */6 * * *' # 每 6 小时触发一次
+  workflow_dispatch: # 允许手动触发
+
 jobs:
   update-m3u:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 赋予 workflow 写入仓库内容的权限
+
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取所有历史记录和 tags，以便正确计算版本号
+
       - name: Set up SSH key
-        uses: webfactory/ssh-agent@v0.5.4
+        uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: doit
-        uses: actions/checkout@v2
-      - name: Clear existing file
-        run: >
-          if [ -f bj-unicom-iptv.m3u ]; then
-            > bj-unicom-iptv.m3u
-          fi
-      - name: Get Gist
+
+      - name: Fetch and Process M3U File
+        id: process_m3u
         run: |
-          # 假设你已经安装了 curl 和 jq
-          GIST_CONTENT=$(curl -s https://api.github.com/gists/93cf74947770066743fff7c7f4fc5820 | jq -r '.files."bj-unicom-iptv.m3u".content')
-          echo "${GIST_CONTENT}"
-          # 假设要将 "old_string" 替换为 "new_string"
-          OLD_STRING='rtp://'
-          NEW_STRING='http://192.168.1.4:8012/rtp/'
-          REPLACED_CONTENT="${GIST_CONTENT//$OLD_STRING/$NEW_STRING}"
-          echo "${REPLACED_CONTENT}" > bj-unicom-iptv.m3u
+          # 从 Gist 获取原始 M3U 内容并保存到临时文件
+          curl -sL https://api.github.com/gists/93cf74947770066743fff7c7f4fc5820 | jq -r '.files."bj-unicom-iptv.m3u".content' > original.m3u
+          
+          echo "Original M3U file downloaded. Filtering for HD channels..."
 
-          if [ -n "$(git status --porcelain)" ]; then
-            git config --global user.email "kimi@kimi.com"
-            git config --global user.name "kimi"
-            git add bj-unicom-iptv.m3u
-            git commit -m "Updated m3u with replaced strings"
-            git push git@github.com:Dendim0n/home-bjunicom-iptv.git main
+          # 使用 awk 过滤，只保留高清/4K频道（如果存在），或者标清频道（如果没有更高版本）
+          # 第一次读取 (NR==FNR): 记录所有存在高清/4K版本的频道基础名称
+          # 第二次读取: 
+          #   - 如果一个频道是高清/4K，则保留
+          #   - 如果一个频道是标清，检查是否存在对应的高清版本。如果不存在，则保留该标清频道
+          # 最后使用 sed 替换 rtp:// 协议
+          awk '
+          NR==FNR {
+              if ($0 ~ /高清|4K/ && $0 ~ /#EXTINF/) {
+                  name = $0;
+                  sub(/.*,/, "", name);
+                  sub(/高清/, "", name);
+                  sub(/4K/, "", name);
+                  gsub(/-/, "", name);
+                  hd_channels[name] = 1;
+              }
+              next
+          }
+          {
+              if ($0 ~ /^#EXTINF/) {
+                  buffer = $0;
+                  name = $0;
+                  is_high_quality = ($0 ~ /高清|4K/);
+                  sub(/.*,/, "", name);
+                  sub(/高清/, "", name);
+                  sub(/4K/, "", name);
+                  gsub(/-/, "", name);
+                  keep = is_high_quality || ! (name in hd_channels);
+              } else if ($0 ~ /^rtp:/ && buffer != "") {
+                  if (keep) {
+                      print buffer;
+                      print $0;
+                  }
+                  buffer = "";
+                  keep = 0;
+              }
+          }
+          ' original.m3u original.m3u | sed 's|rtp://|http://192.168.1.4:8012/rtp/|g' > bj-unicom-iptv.m3u
 
-            git fetch --tags
-            VERSION=$(git tag | sort -V | tail -n 1)
-            echo "Current version is: $VERSION"
-            if [ -z "$VERSION" ]; then
-              VERSION="v0.0.0"
-            fi
-            NEW_VERSION=$(echo $VERSION | awk -F. -v OFS=. '{$NF++; print}')
-            echo "New version is: $NEW_VERSION"
-            echo ::set-output name=version::$NEW_VERSION
+          echo "M3U file has been filtered for HD and processed."
+
+      - name: Commit and Push Changes
+        id: commit_push
+        run: |
+          # 检查文件是否有实际变动
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes detected. Skipping commit and release."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "No changes detected"
+            echo "Changes detected. Committing and pushing..."
+            git config --global user.email "action@github.com"
+            git config --global user.name "GitHub Action"
+            git add bj-unicom-iptv.m3u
+            git commit -m "chore: Auto update bj-unicom-iptv.m3u"
+            git push git@github.com:Dendim0n/home-bjunicom-iptv.git main
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create release
-        if: steps.get_version.outputs.version != ''
+      - name: Calculate Next Version
+        id: versioning
+        if: steps.commit_push.outputs.changed == 'true'
+        run: |
+          # 获取最新的 tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Current version is: $LATEST_TAG"
+          
+          # 计算新版本号（只增加修订号）
+          NEW_TAG=$(echo $LATEST_TAG | awk -F. -v OFS=. '{$NF++; print}')
+          echo "New version is: $NEW_TAG"
+          
+          # 将新版本号设置为输出变量
+          echo "new_version=$NEW_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
+        id: create_release
+        if: steps.commit_push.outputs.changed == 'true'
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.get_version.outputs.version }}
-          release_name: Release ${{ steps.get_version.outputs.version }}
+          tag_name: ${{ steps.versioning.outputs.new_version }}
+          release_name: Release ${{ steps.versioning.outputs.new_version }}
+          body: "Automated update of m3u file. Filtered for HD channels."
           draft: false
           prerelease: false
-          
-      - name: Upload release asset
-        if: steps.get_version.outputs.version != ''
+
+      - name: Upload Release Asset
+        if: steps.commit_push.outputs.changed == 'true'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -70,3 +126,4 @@ jobs:
           asset_path: ./bj-unicom-iptv.m3u
           asset_name: bj-unicom-iptv.m3u
           asset_content_type: application/x-mpegURL
+
