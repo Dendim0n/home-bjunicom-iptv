@@ -65,26 +65,58 @@ jobs:
           ' original.m3u original.m3u > filtered.m3u
 
           echo "M3U file has been filtered for HD."
-          echo "Now standardizing names, sorting, and processing protocols..."
+          echo "Now adding groups, standardizing names, sorting, and processing protocols..."
 
-          # 步骤 2: 添加 M3U 标头, 替换 "CCTV-", 排序, 并替换协议
-          # - `echo "#EXTM3U"`: 写入标准的 M3U 文件头
-          # - `sed 's/CCTV-/CCTV/g'`: 将 "CCTV-" 统一为 "CCTV"
-          # - `paste - -`: 将 "#EXTINF" 行和其后的 rtp 地址行合并为一行，用制表符分隔，方便排序
-          # - `(export LC_COLLATE=C; sort ...)`: 核心排序逻辑。LC_COLLATE=C 确保字母排在汉字前
-          # - `awk ...`: 将排好序的行再拆分为两行
-          # - `sed 's|rtp://...|g'`: 替换 rtp 协议为 http
+          # 步骤 2: 添加分组, 标准化名称, 排序, 并替换协议
+          # 使用 awk 处理过滤后的文件，为每一对行（频道信息和地址）生成一个可排序的中间行
+          # 格式为: 分组|频道名|完整的频道信息行|完整的地址行
+          awk '
+          {
+              if ($0 ~ /^#EXTINF/) {
+                  line1 = $0;
+                  
+                  # 统一 "CCTV-" 为 "CCTV"
+                  sub(/CCTV-/, "CCTV", line1);
+                  
+                  # 提取频道名
+                  channel_name = line1;
+                  sub(/.*,/, "", channel_name);
+                  
+                  # 根据频道名确定分组
+                  group = "其他";
+                  if (channel_name ~ /^CCTV/) {
+                      group = "CCTV";
+                  } else if (channel_name ~ /^BRTV/) {
+                      group = "BRTV";
+                  }
+                  
+                  # 重新构建带分组信息的频道信息行
+                  new_extinf = "#EXTINF:-1 group-title=\"" group "\"," channel_name;
+                  
+                  # 读取下一行 (rtp 地址)
+                  getline line2;
+                  
+                  # 输出用于排序的组合行
+                  print group "|" channel_name "|" new_extinf "|" line2;
+              }
+          }
+          ' filtered.m3u > sortable.tmp
+
+          # 对中间文件进行排序
+          # - `export LC_COLLATE=C`: 确保字母排在汉字前
+          # - `sort -t'|' -k1,1 -k2,2`: 首先按第1个字段（分组）排序，然后按第2个字段（频道名）排序
+          (export LC_COLLATE=C; sort -t'|' -k1,1 -k2,2 sortable.tmp) > sorted.tmp
+
+          # 最后，从排好序的文件中提取所需内容，添加 M3U 标头，并替换协议
           (
             echo "#EXTM3U";
-            cat filtered.m3u \
-              | sed 's/CCTV-/CCTV/g' \
-              | paste - - \
-              | (export LC_COLLATE=C; sort -t ',' -k 2) \
-              | awk -F'\t' '{print $1; print $2}' \
-              | sed 's|rtp://|http://192.168.1.4:8012/rtp/|g';
+            awk -F'|' '{print $3; print $4}' sorted.tmp | sed 's|rtp://|http://192.168.1.4:8012/rtp/|g';
           ) > bj-unicom-iptv.m3u
 
-          echo "M3U file has been fully processed and sorted."
+          # 删除临时文件
+          rm sortable.tmp sorted.tmp
+
+          echo "M3U file has been grouped, sorted, and fully processed."
 
       - name: Commit and Push Changes
         id: commit_push
@@ -127,7 +159,7 @@ jobs:
         with:
           tag_name: ${{ steps.versioning.outputs.new_version }}
           release_name: Release ${{ steps.versioning.outputs.new_version }}
-          body: "Automated update of m3u file. Filtered for HD channels and sorted."
+          body: "Automated update of m3u file. Grouped, sorted, and filtered for HD channels."
           draft: false
           prerelease: false
 
