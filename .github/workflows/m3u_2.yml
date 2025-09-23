@@ -1,7 +1,5 @@
 name: Auto Update M3U from qwerttvv repo
 on:
-  schedule:
-    - cron: '0 */6 * * *' # 每 6 小时触发一次
   workflow_dispatch:
 jobs:
   update-m3u:
