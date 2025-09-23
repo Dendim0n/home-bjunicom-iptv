@@ -2,7 +2,7 @@ name: Auto Update M3U
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # 每 6 小时触发一次
+    - cron: '0 3 * * *' # 每天凌晨3点触发一次
   workflow_dispatch: # 允许手动触发
 
 jobs:
@@ -121,15 +121,19 @@ jobs:
       - name: Commit and Push Changes
         id: commit_push
         run: |
-          # 检查文件是否有实际变动
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "No changes detected. Skipping commit and release."
+          # 将可能已修改的文件添加到暂存区
+          git add bj-unicom-iptv.m3u
+
+          # 使用 git diff 检查是否有实际的内容变更。
+          # 这比 `git status` 更可靠，因为它会忽略文件模式等非内容变更，
+          # 从而可以防止 "nothing to commit" 错误。
+          if git diff --staged --quiet; then
+            echo "No content changes detected. Skipping commit and release."
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "Changes detected. Committing and pushing..."
+            echo "Content changes detected. Committing and pushing..."
             git config --global user.email "action@github.com"
             git config --global user.name "GitHub Action"
-            git add bj-unicom-iptv.m3u
             git commit -m "chore: Auto update bj-unicom-iptv.m3u"
             git push git@github.com:Dendim0n/home-bjunicom-iptv.git main
             echo "changed=true" >> "$GITHUB_OUTPUT"
